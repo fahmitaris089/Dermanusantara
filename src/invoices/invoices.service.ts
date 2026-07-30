@@ -1,8 +1,8 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
-import { DonationStatus, PaymentStatus } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { DomainException } from '../common/domain.exception';
-import { formatIdr } from '../common/numbers';
+import { HttpStatus, Injectable } from "@nestjs/common";
+import { DonationStatus, PaymentStatus } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { DomainException } from "../common/domain.exception";
+import { formatIdr } from "../common/numbers";
 
 @Injectable()
 export class InvoicesService {
@@ -14,23 +14,23 @@ export class InvoicesService {
       include: {
         payments: {
           include: { paymentMethod: true },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           take: 1,
         },
       },
     });
     if (!donation) {
       throw new DomainException(
-        'INVOICE_NOT_FOUND',
-        'Invoice tidak ditemukan.',
+        "INVOICE_NOT_FOUND",
+        "Invoice tidak ditemukan.",
         HttpStatus.NOT_FOUND,
       );
     }
     const payment = donation.payments[0];
     if (!payment) {
       throw new DomainException(
-        'INVOICE_NOT_FOUND',
-        'Payment invoice tidak ditemukan.',
+        "INVOICE_NOT_FOUND",
+        "Payment invoice tidak ditemukan.",
         HttpStatus.NOT_FOUND,
       );
     }
@@ -58,7 +58,7 @@ export class InvoicesService {
       ]);
     }
     const contribution =
-      donation.inputTypeSnapshot === 'QUANTITY'
+      donation.inputTypeSnapshot === "QUANTITY"
         ? {
             inputType: donation.inputTypeSnapshot,
             quantity: donation.quantity,
@@ -71,24 +71,23 @@ export class InvoicesService {
             amount: Number(donation.baseAmount),
           };
     const summary =
-      donation.inputTypeSnapshot === 'QUANTITY'
+      donation.inputTypeSnapshot === "QUANTITY"
         ? `${donation.quantity} ${donation.unitLabelSnapshot} x ${formatIdr(
             donation.unitPriceSnapshot ?? 0,
           )}`
         : `Donasi ${formatIdr(donation.baseAmount)}`;
     const message = [
-      'Assalamualaikum Admin,',
-      '',
+      "Assalamualaikum Admin,",
+      "",
       `Saya telah melakukan transfer untuk donasi ${donation.campaignTitleSnapshot}.`,
-      '',
+      "",
       `Nomor invoice: ${donation.invoiceNumber}`,
       `Kontribusi: ${summary}`,
       `Total transfer: ${formatIdr(payment.payableAmount)}`,
-      '',
-      'Mohon dibantu melakukan pengecekan. Terima kasih.',
-    ].join('\n');
-    const adminWhatsapp =
-      process.env.ADMIN_WHATSAPP ?? '6281234567890';
+      "",
+      "Mohon dibantu melakukan pengecekan. Terima kasih.",
+    ].join("\n");
+    const adminWhatsapp = process.env.ADMIN_WHATSAPP ?? "6281234567890";
     return {
       data: {
         invoiceNumber: donation.invoiceNumber,
@@ -98,7 +97,7 @@ export class InvoicesService {
           title: donation.campaignTitleSnapshot,
         },
         donorDisplayName: donation.isAnonymous
-          ? process.env.ANONYMOUS_LABEL ?? 'Hamba Allah'
+          ? process.env.ANONYMOUS_LABEL ?? "Hamba Allah"
           : donation.donorName,
         contribution,
         baseAmount: Number(donation.baseAmount),
@@ -115,7 +114,9 @@ export class InvoicesService {
           instructions: payment.instructionsSnapshot,
         },
         confirmation: {
-          whatsappUrl: `https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(message)}`,
+          whatsappUrl: `https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(
+            message,
+          )}`,
           message,
         },
       },
