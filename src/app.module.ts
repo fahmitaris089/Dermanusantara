@@ -7,6 +7,7 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { DonationsModule } from './donations/donations.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { HealthController } from './health.controller';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { HealthController } from './health.controller';
     CampaignsModule,
     DonationsModule,
     InvoicesModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

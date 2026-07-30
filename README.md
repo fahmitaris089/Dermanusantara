@@ -101,3 +101,20 @@ npm run build
 ```
 
 Target runtime proyek adalah Node.js 22 LTS.
+
+## Admin API
+
+Admin API tersedia di prefix `/api/v1/admin` dan terdokumentasi di Swagger.
+Akun lokal pertama dibuat oleh seed:
+
+```text
+email: admin@dermanusantara.local
+password: AdminLocal123!
+```
+
+Ganti `ADMIN_JWT_SECRET` dan kredensial seed untuk staging/production. Login
+menggunakan cookie `httpOnly`; setiap request mutasi setelah login wajib
+mengirim nilai cookie `admin_csrf` melalui header `X-CSRF-Token`.
+
+Upload cover campaign disimpan pada named volume
+`derma-nusantara-admin-uploads` dan tersedia melalui `/uploads/:filename`.

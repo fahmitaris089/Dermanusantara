@@ -1,4 +1,5 @@
 import {
+  AdminRole,
   CampaignStatus,
   ContributionInputType,
   DonationStatus,
@@ -8,6 +9,7 @@ import {
   PrismaClient,
   TargetMetric,
 } from '@prisma/client';
+import { hash } from 'argon2';
 
 const prisma = new PrismaClient();
 
@@ -568,6 +570,23 @@ async function main() {
         uniqueCodeMin: 1,
         uniqueCodeMax: 999,
       },
+    },
+  });
+
+  const adminEmail = (process.env.ADMIN_SEED_EMAIL || 'admin@dermanusantara.local').toLowerCase();
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD || 'AdminLocal123!';
+  await prisma.adminUser.upsert({
+    where: { email: adminEmail },
+    update: {
+      name: process.env.ADMIN_SEED_NAME || 'Super Admin',
+      role: AdminRole.SUPER_ADMIN,
+      isActive: true,
+    },
+    create: {
+      email: adminEmail,
+      name: process.env.ADMIN_SEED_NAME || 'Super Admin',
+      role: AdminRole.SUPER_ADMIN,
+      passwordHash: await hash(adminPassword),
     },
   });
 }

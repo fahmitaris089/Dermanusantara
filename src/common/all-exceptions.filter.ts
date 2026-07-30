@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DomainException } from './domain.exception';
+import { Prisma } from '@prisma/client';
 
 type RequestWithId = Request & { requestId?: string };
 
@@ -29,6 +30,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       code = exception.code;
       message = exception.message;
       details = exception.details;
+    } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      if (exception.code === 'P2002') {
+        code = 'RESOURCE_CONFLICT';
+        message = 'Data dengan nilai unik tersebut sudah tersedia.';
+      } else if (exception.code === 'P2025') {
+        code = 'NOT_FOUND';
+        message = 'Data tidak ditemukan.';
+      }
     } else if (exception instanceof HttpException) {
       const body = exception.getResponse();
       code = status === HttpStatus.TOO_MANY_REQUESTS ? 'RATE_LIMITED' : 'VALIDATION_ERROR';

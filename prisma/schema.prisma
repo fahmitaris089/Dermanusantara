@@ -47,6 +47,12 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum AdminRole {
+  SUPER_ADMIN
+  CAMPAIGN_MANAGER
+  VERIFIER
+}
+
 model CampaignCategory {
   id        String     @id @default(cuid())
   code      String     @unique
@@ -252,15 +258,88 @@ model Payment {
   instructionsSnapshot  Json?         @map("instructions_snapshot")
   expiresAt             DateTime      @map("expires_at")
   verifiedAt            DateTime?     @map("verified_at")
+  verifiedByAdminId     String?       @map("verified_by_admin_id")
+  verificationNote      String?       @map("verification_note")
+  bankReference         String?       @map("bank_reference")
   metadata              Json?
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
   donation              Donation      @relation(fields: [donationId], references: [id], onDelete: Cascade)
   paymentMethod         PaymentMethod @relation(fields: [paymentMethodId], references: [id])
   bankAccount           BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  verifiedByAdmin       AdminUser?    @relation(fields: [verifiedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([donationId, status])
   @@map("payments")
+}
+
+model AdminUser {
+  id               String         @id @default(cuid())
+  email            String         @unique
+  passwordHash     String         @map("password_hash")
+  name             String
+  role             AdminRole
+  isActive         Boolean        @default(true) @map("is_active")
+  lastLoginAt      DateTime?      @map("last_login_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  sessions         AdminSession[]
+  auditLogs        AuditLog[]
+  uploadedMedia    MediaAsset[]
+  verifiedPayments Payment[]
+
+  @@index([role, isActive])
+  @@map("admin_users")
+}
+
+model AdminSession {
+  id          String    @id @default(cuid())
+  adminUserId String    @map("admin_user_id")
+  tokenHash   String    @unique @map("token_hash")
+  tokenFamily String    @map("token_family")
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId, expiresAt])
+  @@map("admin_sessions")
+}
+
+model AuditLog {
+  id         String     @id @default(cuid())
+  actorId    String?    @map("actor_id")
+  action     String
+  entityType String     @map("entity_type")
+  entityId   String?    @map("entity_id")
+  beforeData Json?      @map("before_data")
+  afterData  Json?      @map("after_data")
+  reason     String?
+  requestId  String?    @map("request_id")
+  ipAddress  String?    @map("ip_address")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  actor      AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model MediaAsset {
+  id           String    @id @default(cuid())
+  storedName   String    @unique @map("stored_name")
+  originalName String    @map("original_name")
+  url          String
+  mimeType     String    @map("mime_type")
+  size         Int
+  uploaderId   String    @map("uploader_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  uploader     AdminUser @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+
+  @@index([uploaderId, createdAt])
+  @@map("media_assets")
 }
 
 model DonationStatusHistory {
