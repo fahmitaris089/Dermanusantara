@@ -104,6 +104,7 @@ export class InvoicesService {
         uniqueCode: payment.uniqueCode,
         payableAmount: Number(payment.payableAmount),
         currency: donation.currency,
+        createdAt: donation.createdAt,
         expiresAt: donation.expiresAt,
         payment: {
           methodCode: payment.paymentMethod.code,

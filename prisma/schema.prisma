@@ -66,6 +66,10 @@ model Campaign {
   shortDescription   String                   @map("short_description")
   description        String
   coverImageUrl      String                   @map("cover_image_url")
+  coverImageAlt      String                   @default("") @map("cover_image_alt")
+  location           String?
+  story              Json                     @default("[]")
+  highlights         Json                     @default("[]")
   status             CampaignStatus           @default(DRAFT)
   isFeatured         Boolean                  @default(false) @map("is_featured")
   acceptingDonations Boolean                  @default(true) @map("accepting_donations")
@@ -81,9 +85,37 @@ model Campaign {
   donationOptions    CampaignDonationOption[]
   paymentMethods     CampaignPaymentMethod[]
   donations          Donation[]
+  statBaseline       CampaignStatBaseline?
+  updates            CampaignUpdate[]
 
   @@index([status, startsAt, endsAt])
   @@map("campaigns")
+}
+
+model CampaignStatBaseline {
+  id                String   @id @default(cuid())
+  campaignId        String   @unique @map("campaign_id")
+  collectedAmount   BigInt   @default(0) @map("collected_amount")
+  collectedQuantity Int      @default(0) @map("collected_quantity")
+  paidDonationCount Int      @default(0) @map("paid_donation_count")
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_stat_baselines")
+}
+
+model CampaignUpdate {
+  id          String   @id @default(cuid())
+  campaignId  String   @map("campaign_id")
+  publishedAt DateTime @map("published_at")
+  title       String
+  excerpt     String
+  content     Json     @default("[]")
+  sortOrder   Int      @default(0) @map("sort_order")
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, sortOrder])
+  @@index([campaignId, publishedAt])
+  @@map("campaign_updates")
 }
 
 model CampaignDonationConfig {

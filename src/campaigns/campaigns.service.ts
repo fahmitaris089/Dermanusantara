@@ -8,6 +8,8 @@ import { ListCampaignsDto } from './dto/list-campaigns.dto';
 const campaignInclude = {
   category: true,
   donationConfig: true,
+  statBaseline: true,
+  updates: { orderBy: { sortOrder: 'asc' } },
   donationOptions: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
   paymentMethods: {
     where: { isActive: true, paymentMethod: { isActive: true } },
@@ -39,7 +41,11 @@ export class CampaignsService {
     const [campaigns, total] = await this.prisma.$transaction([
       this.prisma.campaign.findMany({
         where,
-        include: { category: true, donationConfig: true },
+        include: {
+          category: true,
+          donationConfig: true,
+          statBaseline: true,
+        },
         orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -99,10 +105,44 @@ export class CampaignsService {
             maximumQuantity: config.maximumQuantity,
             quantityStep: config.quantityStep,
           };
+    const recentDonors = await this.prisma.donation.findMany({
+      where: {
+        campaignId: campaign.id,
+        status: DonationStatus.PAID,
+      },
+      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+      take: 10,
+      select: {
+        donorName: true,
+        isAnonymous: true,
+        baseAmount: true,
+        publicMessage: true,
+        paidAt: true,
+        createdAt: true,
+      },
+    });
     return {
       data: {
         ...card,
         description: campaign.description,
+        location: campaign.location,
+        coverImageAlt: campaign.coverImageAlt,
+        story: this.stringArray(campaign.story),
+        highlights: this.stringArray(campaign.highlights),
+        updates: campaign.updates.map((update) => ({
+          publishedAt: update.publishedAt,
+          title: update.title,
+          excerpt: update.excerpt,
+          content: this.stringArray(update.content),
+        })),
+        recentDonors: recentDonors.map((donor) => ({
+          donorDisplayName: donor.isAnonymous
+            ? process.env.ANONYMOUS_LABEL ?? 'Hamba Allah'
+            : donor.donorName,
+          amount: Number(donor.baseAmount),
+          message: donor.publicMessage,
+          donatedAt: donor.paidAt ?? donor.createdAt,
+        })),
         acceptingDonations: true,
         donationConfig,
         paymentMethods: campaign.paymentMethods.map(({ paymentMethod }) => ({
@@ -122,8 +162,14 @@ export class CampaignsService {
     title: string;
     shortDescription: string;
     coverImageUrl: string;
+    coverImageAlt: string;
     category: { code: string; name: string };
     donationConfig: { inputType: string } | null;
+    statBaseline: {
+      collectedAmount: bigint;
+      collectedQuantity: number;
+      paidDonationCount: number;
+    } | null;
     targetMetric: string | null;
     targetAmount: bigint | null;
     targetQuantity: number | null;
@@ -135,8 +181,14 @@ export class CampaignsService {
       _sum: { baseAmount: true, quantity: true },
       _count: { id: true },
     });
-    const collectedAmount = Number(stats._sum.baseAmount ?? 0);
-    const collectedQuantity = stats._sum.quantity ?? 0;
+    const collectedAmount =
+      Number(campaign.statBaseline?.collectedAmount ?? 0) +
+      Number(stats._sum.baseAmount ?? 0);
+    const collectedQuantity =
+      (campaign.statBaseline?.collectedQuantity ?? 0) +
+      (stats._sum.quantity ?? 0);
+    const paidDonationCount =
+      (campaign.statBaseline?.paidDonationCount ?? 0) + stats._count.id;
     const targetValue =
       campaign.targetMetric === 'QUANTITY'
         ? campaign.targetQuantity
@@ -153,6 +205,7 @@ export class CampaignsService {
       title: campaign.title,
       shortDescription: campaign.shortDescription,
       coverImageUrl: campaign.coverImageUrl,
+      coverImageAlt: campaign.coverImageAlt,
       category: {
         code: campaign.category.code,
         name: campaign.category.name,
@@ -168,7 +221,7 @@ export class CampaignsService {
             ? collectedQuantity
             : null,
         percentage,
-        paidDonationCount: stats._count.id,
+        paidDonationCount,
       },
       endsAt: campaign.endsAt,
       daysRemaining: campaign.endsAt
@@ -179,5 +232,11 @@ export class CampaignsService {
         : null,
       isFeatured: campaign.isFeatured,
     };
+  }
+
+  private stringArray(value: Prisma.JsonValue): string[] {
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
   }
 }
