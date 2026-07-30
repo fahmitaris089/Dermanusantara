@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CampaignStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum ContributionInputType {
+  MONEY
+  QUANTITY
+}
+
+enum TargetMetric {
+  AMOUNT
+  QUANTITY
+}
+
+enum PaymentMethodType {
+  MANUAL_TRANSFER
+  PAYMENT_GATEWAY
+}
+
+enum DonationStatus {
+  PENDING_PAYMENT
+  MANUAL_REVIEW
+  PAID
+  EXPIRED
+  CANCELLED
+  REJECTED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+model CampaignCategory {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  campaigns Campaign[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("campaign_categories")
+}
+
+model Campaign {
+  id                 String                   @id @default(cuid())
+  categoryId         String                   @map("category_id")
+  slug               String                   @unique
+  title              String
+  shortDescription   String                   @map("short_description")
+  description        String
+  coverImageUrl      String                   @map("cover_image_url")
+  status             CampaignStatus           @default(DRAFT)
+  isFeatured         Boolean                  @default(false) @map("is_featured")
+  acceptingDonations Boolean                  @default(true) @map("accepting_donations")
+  targetMetric       TargetMetric?            @map("target_metric")
+  targetAmount       BigInt?                  @map("target_amount")
+  targetQuantity     Int?                     @map("target_quantity")
+  startsAt           DateTime?                @map("starts_at")
+  endsAt             DateTime?                @map("ends_at")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  category           CampaignCategory         @relation(fields: [categoryId], references: [id])
+  donationConfig     CampaignDonationConfig?
+  donationOptions    CampaignDonationOption[]
+  paymentMethods     CampaignPaymentMethod[]
+  donations          Donation[]
+
+  @@index([status, startsAt, endsAt])
+  @@map("campaigns")
+}
+
+model CampaignDonationConfig {
+  id                String                @id @default(cuid())
+  campaignId        String                @unique @map("campaign_id")
+  inputType         ContributionInputType @map("input_type")
+  currency          String                @default("IDR")
+  minimumAmount     BigInt?               @map("minimum_amount")
+  maximumAmount     BigInt?               @map("maximum_amount")
+  allowCustomAmount Boolean?              @map("allow_custom_amount")
+  unitName          String?               @map("unit_name")
+  unitLabel         String?               @map("unit_label")
+  unitPrice         BigInt?               @map("unit_price")
+  minimumQuantity   Int?                  @map("minimum_quantity")
+  maximumQuantity   Int?                  @map("maximum_quantity")
+  quantityStep      Int?                  @map("quantity_step")
+  campaign          Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_donation_configs")
+}
+
+model CampaignDonationOption {
+  id         String   @id @default(cuid())
+  campaignId String   @map("campaign_id")
+  amount     BigInt
+  label      String?
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, amount])
+  @@map("campaign_donation_options")
+}
+
+model PaymentMethod {
+  id                String                  @id @default(cuid())
+  code              String                  @unique
+  name              String
+  type              PaymentMethodType
+  isActive          Boolean                 @default(true) @map("is_active")
+  minimumAmount     BigInt?                 @map("minimum_amount")
+  maximumAmount     BigInt?                 @map("maximum_amount")
+  uniqueCodeEnabled Boolean                 @default(false) @map("unique_code_enabled")
+  expiryMinutes     Int                     @default(1440) @map("expiry_minutes")
+  campaignLinks     CampaignPaymentMethod[]
+  payments          Payment[]
+
+  @@map("payment_methods")
+}
+
+model BankAccount {
+  id                String    @id @default(cuid())
+  bankName          String    @map("bank_name")
+  accountNumber     String    @map("account_number")
+  accountHolderName String    @map("account_holder_name")
+  instructions      Json
+  isActive          Boolean   @default(true) @map("is_active")
+  payments          Payment[]
+
+  @@map("bank_accounts")
+}
+
+model CampaignPaymentMethod {
+  campaignId      String        @map("campaign_id")
+  paymentMethodId String        @map("payment_method_id")
+  isActive        Boolean       @default(true) @map("is_active")
+  campaign        Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+
+  @@id([campaignId, paymentMethodId])
+  @@map("campaign_payment_methods")
+}
+
+model Donation {
+  id                    String                  @id @default(cuid())
+  publicId              String                  @unique @map("public_id")
+  invoiceNumber         String                  @unique @map("invoice_number")
+  campaignId            String                  @map("campaign_id")
+  campaignTitleSnapshot String                  @map("campaign_title_snapshot")
+  campaignSlugSnapshot  String                  @map("campaign_slug_snapshot")
+  inputTypeSnapshot     ContributionInputType   @map("input_type_snapshot")
+  quantity              Int?
+  unitNameSnapshot      String?                 @map("unit_name_snapshot")
+  unitLabelSnapshot     String?                 @map("unit_label_snapshot")
+  unitPriceSnapshot     BigInt?                 @map("unit_price_snapshot")
+  baseAmount            BigInt                  @map("base_amount")
+  currency              String
+  donorName             String                  @map("donor_name")
+  donorWhatsapp         String                  @map("donor_whatsapp")
+  isAnonymous           Boolean                 @default(false) @map("is_anonymous")
+  publicMessage         String?                 @map("public_message")
+  status                DonationStatus          @default(PENDING_PAYMENT)
+  expiresAt             DateTime                @map("expires_at")
+  paidAt                DateTime?               @map("paid_at")
+  ipAddress             String?                 @map("ip_address")
+  userAgent             String?                 @map("user_agent")
+  referrer              String?
+  acceptLanguage        String?                 @map("accept_language")
+  utmSource             String?                 @map("utm_source")
+  utmMedium             String?                 @map("utm_medium")
+  utmCampaign           String?                 @map("utm_campaign")
+  utmContent            String?                 @map("utm_content")
+  utmTerm               String?                 @map("utm_term")
+  geoCountry            String?                 @map("geo_country")
+  geoProvince           String?                 @map("geo_province")
+  geoCity               String?                 @map("geo_city")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  campaign              Campaign                @relation(fields: [campaignId], references: [id])
+  payments              Payment[]
+  statusHistories       DonationStatusHistory[]
+  idempotencyRecord     IdempotencyRecord?
+
+  @@index([campaignId, status])
+  @@map("donations")
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  donationId            String        @map("donation_id")
+  paymentMethodId       String        @map("payment_method_id")
+  bankAccountId         String?       @map("bank_account_id")
+  provider              String
+  providerReference     String?       @map("provider_reference")
+  baseAmount            BigInt        @map("base_amount")
+  uniqueCode            Int           @default(0) @map("unique_code")
+  payableAmount         BigInt        @map("payable_amount")
+  activeUniqueKey       String?       @unique @map("active_unique_key")
+  currency              String
+  status                PaymentStatus @default(PENDING)
+  bankNameSnapshot      String?       @map("bank_name_snapshot")
+  accountNumberSnapshot String?       @map("account_number_snapshot")
+  accountHolderSnapshot String?       @map("account_holder_snapshot")
+  instructionsSnapshot  Json?         @map("instructions_snapshot")
+  expiresAt             DateTime      @map("expires_at")
+  verifiedAt            DateTime?     @map("verified_at")
+  metadata              Json?
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  donation              Donation      @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  paymentMethod         PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  bankAccount           BankAccount?  @relation(fields: [bankAccountId], references: [id])
+
+  @@index([donationId, status])
+  @@map("payments")
+}
+
+model DonationStatusHistory {
+  id         String          @id @default(cuid())
+  donationId String          @map("donation_id")
+  fromStatus DonationStatus? @map("from_status")
+  toStatus   DonationStatus  @map("to_status")
+  reason     String?
+  createdAt  DateTime        @default(now()) @map("created_at")
+  donation   Donation        @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  @@map("donation_status_histories")
+}
+
+model IdempotencyRecord {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  requestHash String   @map("request_hash")
+  donationId  String   @unique @map("donation_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  donation    Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+
+  @@map("idempotency_records")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
