@@ -17,7 +17,11 @@ const permissions: Record<AdminRole, string[]> = {
 
 @Injectable()
 export class AdminAuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    if (process.env.NODE_ENV === 'production' && this.secret().length < 32) {
+      throw new Error('ADMIN_JWT_SECRET must contain at least 32 characters in production.');
+    }
+  }
 
   private secret() {
     return process.env.ADMIN_JWT_SECRET || 'local-admin-secret-change-me';
@@ -27,6 +31,19 @@ export class AdminAuthService {
   }
   private profile(user: AdminPrincipal) {
     return { ...user, permissions: permissions[user.role] };
+  }
+  private positiveInteger(value: string | undefined, fallback: number) {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+  private accessTtlMinutes() {
+    return this.positiveInteger(process.env.ADMIN_ACCESS_TOKEN_TTL_MINUTES, 15);
+  }
+  private refreshTtlDays() {
+    return this.positiveInteger(process.env.ADMIN_REFRESH_TOKEN_TTL_DAYS, 7);
+  }
+  private refreshGraceMs() {
+    return this.positiveInteger(process.env.ADMIN_REFRESH_GRACE_SECONDS, 10) * 1000;
   }
   private cookieOptions(maxAge: number) {
     return {
@@ -38,10 +55,10 @@ export class AdminAuthService {
     };
   }
   private setCookies(response: Response, access: string, refresh: string, csrf: string) {
-    response.cookie('admin_access', access, this.cookieOptions(15 * 60_000));
-    response.cookie('admin_refresh', refresh, this.cookieOptions(7 * 86_400_000));
+    response.cookie('admin_access', access, this.cookieOptions(this.accessTtlMinutes() * 60_000));
+    response.cookie('admin_refresh', refresh, this.cookieOptions(this.refreshTtlDays() * 86_400_000));
     response.cookie('admin_csrf', csrf, {
-      ...this.cookieOptions(7 * 86_400_000),
+      ...this.cookieOptions(this.refreshTtlDays() * 86_400_000),
       httpOnly: false,
     });
   }
@@ -50,28 +67,41 @@ export class AdminAuthService {
       response.clearCookie(name, { path: '/' });
     }
   }
-  private async issue(user: AdminPrincipal, request: Request, response: Response, family: string = randomUUID()) {
+  private async createSession(
+    user: AdminPrincipal,
+    request: Request,
+    family: string,
+    database: Prisma.TransactionClient | PrismaService,
+  ) {
     const sessionId = randomUUID();
+    const refreshTtlDays = this.refreshTtlDays();
     const refresh = sign(
       { sub: user.id, sid: sessionId, family, type: 'refresh' },
       this.secret(),
-      { expiresIn: '7d' },
+      { expiresIn: `${refreshTtlDays}d` },
     );
     const access = sign({ sub: user.id, type: 'access' }, this.secret(), {
-      expiresIn: '15m',
+      expiresIn: `${this.accessTtlMinutes()}m`,
     });
-    await this.prisma.adminSession.create({
+    await database.adminSession.create({
       data: {
         id: sessionId,
         adminUserId: user.id,
         tokenHash: this.digest(refresh),
         tokenFamily: family,
-        expiresAt: new Date(Date.now() + 7 * 86_400_000),
+        expiresAt: new Date(Date.now() + refreshTtlDays * 86_400_000),
         ipAddress: request.ip,
         userAgent: request.get('user-agent')?.slice(0, 1000),
       },
     });
-    this.setCookies(response, access, refresh, randomBytes(24).toString('hex'));
+    return { access, refresh, csrf: randomBytes(24).toString('hex') };
+  }
+
+  private async issue(user: AdminPrincipal, request: Request, response: Response, family: string = randomUUID()) {
+    const credentials = await this.prisma.$transaction((transaction) =>
+      this.createSession(user, request, family, transaction),
+    );
+    this.setCookies(response, credentials.access, credentials.refresh, credentials.csrf);
   }
 
   async login(input: LoginDto, request: Request, response: Response) {
@@ -93,16 +123,42 @@ export class AdminAuthService {
     try {
       const payload = verify(token, this.secret()) as { sub: string; sid: string; family: string; type: string };
       if (payload.type !== 'refresh') throw new Error();
-      const session = await this.prisma.adminSession.findUnique({ where: { id: payload.sid }, include: { adminUser: true } });
-      if (!session || session.revokedAt || session.expiresAt <= new Date() || session.tokenHash !== this.digest(token) || !session.adminUser.isActive) {
-        if (session) await this.prisma.adminSession.updateMany({ where: { tokenFamily: session.tokenFamily }, data: { revokedAt: new Date() } });
-        throw new Error();
-      }
-      await this.prisma.adminSession.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
-      const user = session.adminUser;
-      const principal = { id: user.id, email: user.email, name: user.name, role: user.role };
-      await this.issue(principal, request, response, session.tokenFamily);
-      return { data: this.profile(principal) };
+      const result = await this.prisma.$transaction(async (transaction) => {
+        const session = await transaction.adminSession.findUnique({
+          where: { id: payload.sid },
+          include: { adminUser: true },
+        });
+        const tokenMatches = session?.tokenHash === this.digest(token);
+        const active = Boolean(session?.adminUser.isActive);
+        const unexpired = Boolean(session && session.expiresAt > new Date());
+        const insideGrace = Boolean(
+          session?.revokedAt && Date.now() - session.revokedAt.getTime() <= this.refreshGraceMs(),
+        );
+
+        if (!session || !tokenMatches || !active || !unexpired || (session.revokedAt && !insideGrace)) {
+          if (session) {
+            await transaction.adminSession.updateMany({
+              where: { tokenFamily: session.tokenFamily, revokedAt: null },
+              data: { revokedAt: new Date() },
+            });
+          }
+          return null;
+        }
+
+        if (!session.revokedAt) {
+          await transaction.adminSession.update({
+            where: { id: session.id },
+            data: { revokedAt: new Date() },
+          });
+        }
+        const user = session.adminUser;
+        const principal = { id: user.id, email: user.email, name: user.name, role: user.role };
+        const credentials = await this.createSession(principal, request, session.tokenFamily, transaction);
+        return { principal, credentials };
+      });
+      if (!result) throw new Error('invalid refresh session');
+      this.setCookies(response, result.credentials.access, result.credentials.refresh, result.credentials.csrf);
+      return { data: this.profile(result.principal) };
     } catch {
       this.clearCookies(response);
       throw new DomainException('UNAUTHENTICATED', 'Refresh token tidak valid.', HttpStatus.UNAUTHORIZED);
