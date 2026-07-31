@@ -133,12 +133,28 @@ export class DonationsService {
     const expiresAt = new Date(
       now.getTime() + paymentMethod.expiryMinutes * 60_000,
     );
+    const settingRows = await this.prisma.systemSetting.findMany({
+      where: { key: { in: ["uniqueCodeMin", "uniqueCodeMax", "donation_defaults"] } },
+    });
+    const settings = Object.fromEntries(settingRows.map((row) => [row.key, row.value]));
+    const legacy =
+      settings.donation_defaults &&
+      typeof settings.donation_defaults === "object" &&
+      !Array.isArray(settings.donation_defaults)
+        ? settings.donation_defaults as Record<string, unknown>
+        : {};
+    const uniqueCodeMin = Number(
+      settings.uniqueCodeMin ?? legacy.uniqueCodeMin ?? process.env.UNIQUE_CODE_MIN ?? 1,
+    );
+    const uniqueCodeMax = Number(
+      settings.uniqueCodeMax ?? legacy.uniqueCodeMax ?? process.env.UNIQUE_CODE_MAX ?? 999,
+    );
 
     for (let attempt = 0; attempt < 50; attempt += 1) {
       const uniqueCode = paymentMethod.uniqueCodeEnabled
         ? randomInt(
-            Number(process.env.UNIQUE_CODE_MIN ?? 1),
-            Number(process.env.UNIQUE_CODE_MAX ?? 999) + 1,
+            uniqueCodeMin,
+            uniqueCodeMax + 1,
           )
         : 0;
       const payableAmount = calculation.baseAmount + BigInt(uniqueCode);

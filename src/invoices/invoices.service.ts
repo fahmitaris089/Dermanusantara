@@ -9,16 +9,25 @@ export class InvoicesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async get(publicId: string) {
-    const donation = await this.prisma.donation.findUnique({
-      where: { publicId },
-      include: {
-        payments: {
-          include: { paymentMethod: true },
-          orderBy: { createdAt: "desc" },
-          take: 1,
+    const [donation, settingRows] = await Promise.all([
+      this.prisma.donation.findUnique({
+        where: { publicId },
+        include: {
+          payments: {
+            include: { paymentMethod: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
         },
-      },
-    });
+      }),
+      this.prisma.systemSetting.findMany({
+        where: {
+          key: {
+            in: ["adminWhatsapp", "anonymousLabel", "confirmationTemplate", "donation_defaults"],
+          },
+        },
+      }),
+    ]);
     if (!donation) {
       throw new DomainException(
         "INVOICE_NOT_FOUND",
@@ -76,7 +85,7 @@ export class InvoicesService {
             donation.unitPriceSnapshot ?? 0,
           )}`
         : `Donasi ${formatIdr(donation.baseAmount)}`;
-    const message = [
+    const defaultMessage = [
       "Assalamualaikum Admin,",
       "",
       `Saya telah melakukan transfer untuk donasi ${donation.campaignTitleSnapshot}.`,
@@ -87,7 +96,25 @@ export class InvoicesService {
       "",
       "Mohon dibantu melakukan pengecekan. Terima kasih.",
     ].join("\n");
-    const adminWhatsapp = process.env.ADMIN_WHATSAPP ?? "6281234567890";
+    const settings = Object.fromEntries(settingRows.map((row) => [row.key, row.value]));
+    const legacy =
+      settings.donation_defaults &&
+      typeof settings.donation_defaults === "object" &&
+      !Array.isArray(settings.donation_defaults)
+        ? settings.donation_defaults as Record<string, unknown>
+        : {};
+    const value = (key: string, fallback: string) =>
+      String(settings[key] ?? legacy[key] ?? fallback);
+    const adminWhatsapp = value(
+      "adminWhatsapp",
+      process.env.ADMIN_WHATSAPP ?? "6281234567890",
+    ).replace(/\D/g, "");
+    const messageTemplate = value("confirmationTemplate", defaultMessage);
+    const message = messageTemplate
+      .replaceAll("{campaign}", donation.campaignTitleSnapshot)
+      .replaceAll("{invoice}", donation.invoiceNumber)
+      .replaceAll("{contribution}", summary)
+      .replaceAll("{total}", formatIdr(payment.payableAmount));
     return {
       data: {
         invoiceNumber: donation.invoiceNumber,
@@ -97,7 +124,7 @@ export class InvoicesService {
           title: donation.campaignTitleSnapshot,
         },
         donorDisplayName: donation.isAnonymous
-          ? process.env.ANONYMOUS_LABEL ?? "Hamba Allah"
+          ? value("anonymousLabel", process.env.ANONYMOUS_LABEL ?? "Hamba Allah")
           : donation.donorName,
         contribution,
         baseAmount: Number(donation.baseAmount),

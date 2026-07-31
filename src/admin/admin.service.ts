@@ -34,6 +34,7 @@ const allowedSettings = new Set([
   'uniqueCodeMax',
   'timezone',
   'organizationName',
+  'organizationIdentity',
 ]);
 
 @Injectable()
@@ -163,7 +164,31 @@ export class AdminService {
 
   async settings() {
     const rows = await this.prisma.systemSetting.findMany({ orderBy: { key: 'asc' } });
-    return { data: Object.fromEntries(rows.map((row) => [row.key, row.value])) };
+    const stored = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+    const legacy =
+      stored.donation_defaults &&
+      typeof stored.donation_defaults === 'object' &&
+      !Array.isArray(stored.donation_defaults)
+        ? stored.donation_defaults as Record<string, unknown>
+        : {};
+    return {
+      data: {
+        organizationName: 'Derma Nusantara',
+        organizationIdentity: '',
+        adminWhatsapp: process.env.ADMIN_WHATSAPP ?? '6281234567890',
+        anonymousLabel: process.env.ANONYMOUS_LABEL ?? 'Hamba Allah',
+        confirmationTemplate:
+          'Assalamualaikum Admin,\n\nSaya telah melakukan transfer untuk donasi {campaign}.\n\nNomor invoice: {invoice}\nKontribusi: {contribution}\nTotal transfer: {total}\n\nMohon dibantu melakukan pengecekan. Terima kasih.',
+        defaultExpiryMinutes: 1440,
+        uniqueCodeMin: Number(process.env.UNIQUE_CODE_MIN ?? 1),
+        uniqueCodeMax: Number(process.env.UNIQUE_CODE_MAX ?? 999),
+        timezone: 'Asia/Jakarta',
+        ...legacy,
+        ...Object.fromEntries(
+          Object.entries(stored).filter(([key]) => key !== 'donation_defaults'),
+        ),
+      },
+    };
   }
   async updateSettings(input: SettingsDto, actor: string) {
     const invalid = Object.keys(input.values).filter((key) => !allowedSettings.has(key));

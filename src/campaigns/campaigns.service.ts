@@ -105,22 +105,38 @@ export class CampaignsService {
             maximumQuantity: config.maximumQuantity,
             quantityStep: config.quantityStep,
           };
-    const recentDonors = await this.prisma.donation.findMany({
-      where: {
-        campaignId: campaign.id,
-        status: DonationStatus.PAID,
-      },
-      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
-      take: 10,
-      select: {
-        donorName: true,
-        isAnonymous: true,
-        baseAmount: true,
-        publicMessage: true,
-        paidAt: true,
-        createdAt: true,
-      },
-    });
+    const [recentDonors, anonymousSetting, legacySetting] = await Promise.all([
+      this.prisma.donation.findMany({
+        where: {
+          campaignId: campaign.id,
+          status: DonationStatus.PAID,
+        },
+        orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+        take: 10,
+        select: {
+          donorName: true,
+          isAnonymous: true,
+          baseAmount: true,
+          publicMessage: true,
+          paidAt: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.systemSetting.findUnique({ where: { key: 'anonymousLabel' } }),
+      this.prisma.systemSetting.findUnique({ where: { key: 'donation_defaults' } }),
+    ]);
+    const legacy =
+      legacySetting?.value &&
+      typeof legacySetting.value === 'object' &&
+      !Array.isArray(legacySetting.value)
+        ? legacySetting.value as Record<string, unknown>
+        : {};
+    const anonymousLabel = String(
+      anonymousSetting?.value ??
+      legacy.anonymousLabel ??
+      process.env.ANONYMOUS_LABEL ??
+      'Hamba Allah',
+    );
     return {
       data: {
         ...card,
@@ -137,7 +153,7 @@ export class CampaignsService {
         })),
         recentDonors: recentDonors.map((donor) => ({
           donorDisplayName: donor.isAnonymous
-            ? process.env.ANONYMOUS_LABEL ?? 'Hamba Allah'
+            ? anonymousLabel
             : donor.donorName,
           amount: Number(donor.baseAmount),
           message: donor.publicMessage,
