@@ -1,6 +1,6 @@
 import { ArticleStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 
 export class ArticleBlockDto {
   @IsEnum(['paragraph', 'heading', 'quote', 'image'])

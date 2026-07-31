@@ -9,6 +9,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { HealthController } from './health.controller';
 import { AdminModule } from './admin/admin.module';
 import { ArticlesModule } from './articles/articles.module';
+import { HeroSlidesModule } from './hero-slides/hero-slides.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ArticlesModule } from './articles/articles.module';
     InvoicesModule,
     AdminModule,
     ArticlesModule,
+    HeroSlidesModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

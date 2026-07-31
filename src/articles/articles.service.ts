@@ -36,7 +36,8 @@ export class ArticlesService {
   }
   private input(dto: SaveArticleDto) {
     this.validateBlocks(dto.content);
-    const { expectedUpdatedAt: _expected, ...rest } = dto;
+    const rest = { ...dto };
+    delete rest.expectedUpdatedAt;
     return { ...rest, content: rest.content as unknown as Prisma.InputJsonValue, disbursedAmount: rest.disbursedAmount == null ? null : BigInt(rest.disbursedAmount), ctaStartingAmount: rest.ctaStartingAmount == null ? null : BigInt(rest.ctaStartingAmount) };
   }
   async publicList(query: ArticleListDto) {

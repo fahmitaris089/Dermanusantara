@@ -666,6 +666,19 @@ async function main() {
       ogImageUrl: 'https://placehold.co/1200x630/1A237E/FFFFFF/png?text=Launching+Derma+Nusantara',
     },
   });
+
+  const heroSlides = [
+    { id: 'hero-slide-1', desktopImageUrl: '/images/hero/1.webp', desktopImageAlt: 'Program bantuan sosial Derma Nusantara', sortOrder: 0 },
+    { id: 'hero-slide-2', desktopImageUrl: '/images/hero/2.webp', desktopImageAlt: 'Program pendidikan Derma Nusantara', sortOrder: 1 },
+    { id: 'hero-slide-3', desktopImageUrl: '/images/hero/3.webp', desktopImageAlt: 'Program kepedulian Derma Nusantara', sortOrder: 2 },
+  ];
+  for (const slide of heroSlides) {
+    await prisma.heroSlide.upsert({
+      where: { id: slide.id },
+      update: {},
+      create: { ...slide, isActive: true },
+    });
+  }
 }
 
 main()
