@@ -53,6 +53,59 @@ enum AdminRole {
   VERIFIER
 }
 
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model ArticleCategory {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  isActive  Boolean   @default(true) @map("is_active")
+  articles  Article[]
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("article_categories")
+}
+
+model Article {
+  id                  String          @id @default(cuid())
+  categoryId          String          @map("category_id")
+  slug                String          @unique
+  title               String
+  excerpt             String
+  authorName          String          @map("author_name")
+  readTimeMinutes     Int             @default(5) @map("read_time_minutes")
+  coverImageUrl       String          @map("cover_image_url")
+  coverImageAlt       String          @map("cover_image_alt")
+  coverImageCaption   String?         @map("cover_image_caption")
+  content             Json            @default("[]")
+  status              ArticleStatus   @default(DRAFT)
+  publishedAt         DateTime?       @map("published_at")
+  disbursedAmount     BigInt?         @map("disbursed_amount")
+  beneficiaryCount    Int?            @map("beneficiary_count")
+  beneficiaryUnit     String?         @map("beneficiary_unit")
+  ctaTitle            String?         @map("cta_title")
+  ctaDescription      String?         @map("cta_description")
+  ctaStartingAmount   BigInt?         @map("cta_starting_amount")
+  ctaVerificationTime String?         @map("cta_verification_time")
+  ctaButtonLabel      String?         @map("cta_button_label")
+  ctaUrl              String?         @map("cta_url")
+  seoTitle            String?         @map("seo_title")
+  seoDescription      String?         @map("seo_description")
+  ogImageUrl          String?         @map("og_image_url")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  category            ArticleCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([status, publishedAt])
+  @@index([categoryId, status, publishedAt])
+  @@map("articles")
+}
+
 model CampaignCategory {
   id        String     @id @default(cuid())
   code      String     @unique

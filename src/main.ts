@@ -22,7 +22,9 @@ import { AllExceptionsFilter } from './common/all-exceptions.filter';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api/v1');
-  app.use(helmet());
+  // Media upload dilayani dari origin API (mis. localhost:3000), sedangkan
+  // frontend berjalan pada origin berbeda (mis. localhost:3001).
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cookieParser());
   app.useStaticAssets(process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
@@ -51,6 +53,8 @@ async function bootstrap() {
     .addTag('campaigns')
     .addTag('donations')
     .addTag('invoices')
+    .addTag('articles')
+    .addTag('admin-articles')
     .addTag('admin-auth')
     .addTag('admin-users')
     .addTag('admin-masters')

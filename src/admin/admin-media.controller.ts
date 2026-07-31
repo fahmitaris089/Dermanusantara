@@ -71,6 +71,11 @@ export class AdminMediaController {
     const media = await this.prisma.mediaAsset.findUnique({ where: { id } });
     if (!media) throw new DomainException('NOT_FOUND', 'Media tidak ditemukan.', HttpStatus.NOT_FOUND);
     if (await this.prisma.campaign.count({ where: { coverImageUrl: media.url } })) throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan campaign.', HttpStatus.CONFLICT);
+    if (await this.prisma.article.count({ where: { OR: [{ coverImageUrl: media.url }, { ogImageUrl: media.url }] } })) throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan sebagai cover atau OG image artikel.', HttpStatus.CONFLICT);
+    const articleContents = await this.prisma.article.findMany({ select: { content: true } });
+    if (articleContents.some(({ content }) => Array.isArray(content) && content.some((block) => typeof block === 'object' && block !== null && !Array.isArray(block) && (block as { url?: string }).url === media.url))) {
+      throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan di dalam konten artikel.', HttpStatus.CONFLICT);
+    }
     await this.prisma.mediaAsset.delete({ where: { id } });
     try {
       unlinkSync(join(uploadDir, media.storedName));

@@ -8,6 +8,7 @@ import { DonationsModule } from './donations/donations.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { HealthController } from './health.controller';
 import { AdminModule } from './admin/admin.module';
+import { ArticlesModule } from './articles/articles.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminModule } from './admin/admin.module';
     DonationsModule,
     InvoicesModule,
     AdminModule,
+    ArticlesModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

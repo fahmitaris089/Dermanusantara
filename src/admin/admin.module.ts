@@ -32,5 +32,6 @@ import { AdminService } from './admin.service';
     AdminMediaController,
   ],
   providers: [AdminAuthService, AdminService, AdminAuthGuard, RolesGuard, CsrfGuard],
+  exports: [AdminAuthService],
 })
 export class AdminModule {}

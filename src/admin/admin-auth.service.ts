@@ -11,7 +11,7 @@ import { ChangePasswordDto, CreateAdminDto, LoginDto, PageDto, ResetPasswordDto,
 
 const permissions: Record<AdminRole, string[]> = {
   SUPER_ADMIN: ['*'],
-  CAMPAIGN_MANAGER: ['campaigns:write', 'masters:write', 'media:write', 'reports:read'],
+  CAMPAIGN_MANAGER: ['campaigns:write', 'articles:write', 'masters:write', 'media:write', 'reports:read'],
   VERIFIER: ['donations:read', 'payments:verify', 'reports:read'],
 };
 

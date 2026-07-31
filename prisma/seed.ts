@@ -1,5 +1,6 @@
 import {
   AdminRole,
+  ArticleStatus,
   CampaignStatus,
   ContributionInputType,
   DonationStatus,
@@ -12,6 +13,15 @@ import {
 import { hash } from 'argon2';
 
 const prisma = new PrismaClient();
+
+const seededArticles = [
+  ['penyaluran-500-paket-pangan-pelosok-jawa-barat', 'Penyaluran 500 Paket Pangan di pelosok Jawa Barat', 'kegiatan', 'Kegiatan', 'Admin Derma Nusantara', 'Relawan Derma Nusantara menyalurkan paket pangan untuk keluarga rentan di beberapa titik pelosok Jawa Barat.', '2024-03-15', 'https://lh3.googleusercontent.com/aida-public/AB6AXuAIvqxAP_GcmK7hn-UjBlPUjC5pBJ2oXwZ2fWAMU4_Pdkrxj3qmVeEvhSzcjP03gjHYZ9mkX6lG0exl6uTZS_EaNbMSA21_jgHRzpz-LOubn0e-q2NXpa6io4lTHHx35ZVy3VvsOr0-YSiiyh2mBGyQyviCOgqNTK6Q0SVA2jdhyvFGM-YMpsFiCn7vnoectMCnfSFVv2a0ucCAKCKLkJtcbPaBpEj-EIKhgk18z0jwv0gMW2QdI7hbWMdaNn7QeTeXkpp6MarRdCL1', 'Penyaluran paket pangan.'],
+  ['kisah-santri-penghafal-quran-pelosok-negeri', 'Kisah Santri Penghafal Quran di Pelosok Negeri', 'inspirasi', 'Inspirasi', 'Tim Program Pendidikan', 'Cerita santri yang terus menjaga hafalan di tengah keterbatasan fasilitas belajar dan dukungan keluarga.', '2024-03-12', 'https://lh3.googleusercontent.com/aida-public/AB6AXuAhQpgpbx8yrtXZjOxQUz28_JvB291ZXzfVX5yCh1f6kpL_OFw2OVHlekLSAIVwsE_rEMSXJne_vT7pnerG1kpUq5yxwlh9if-jav_RBgghJmtihvomlKF-OkEkTvB5bmLG-5SYLc5YVruKDwZknp4ew8_XoPLRhLT7HZxWz36LDeLWH-H5IQiW5l5iCNVy0B_sWxlwDLkHz6HEIdXc-APebHQ4CJtOvSDwJaOGilOffmnbogg0u_qEtbDaffvn70ZKqJ2Uv2e7faDu', 'Kisah santri.'],
+  ['laporan-tahunan-2023-jejak-kebaikan-kita', 'Laporan Tahunan 2023: Jejak Kebaikan Kita', 'laporan', 'Laporan', 'Tim Transparansi', 'Rangkuman penyaluran dana, dampak program, dan capaian kolaborasi donatur sepanjang tahun 2023.', '2024-03-05', 'https://placehold.co/1200x750/png?text=Laporan+Tahunan+2023', 'Laporan tahunan Derma Nusantara.'],
+  ['program-buku-untuk-semua-capai-10000-eksemplar', 'Program Buku Untuk Semua Capai 10.000 Eksemplar', 'kegiatan', 'Kegiatan', 'Tim Program Pendidikan', 'Buku bacaan baru telah dikirim ke ruang belajar santri dan anak sekolah di wilayah timur Indonesia.', '2024-02-28', 'https://lh3.googleusercontent.com/aida-public/AB6AXuAXOsATncYbhCPaw1hh7mOAM5f2ygTyQDzHtVf0Wm2Fhxk82mBC7afr6mc6dEn0r28qxd_iD4M821aszx1TjlKiPyGGQ1JlfeT6KtearPNoaRmg3kf4SRNoA-Ot41JBt6lpnNoaEXgXhHQVMjh0HUF-0TBVVjq1mMTMfVwsVOE9wKPVZ-5jY7OD5hrQbFNTXQ4AhjlZqE1I49UPLw9di8EH9ngZSeQOvwA22SZItXlMXfHN0Nieywj89oXNc1kpuC704fp001qTvY04', 'Anak-anak sekolah memegang buku baru di ruang kelas.'],
+  ['laporan-transparansi-keuangan-kuartal-pertama', 'Laporan Transparansi Keuangan Kuartal Pertama', 'laporan', 'Laporan', 'Tim Transparansi', 'Ringkasan pemasukan, biaya operasional, dan penyaluran program untuk menjaga amanah para donatur.', '2024-02-20', 'https://lh3.googleusercontent.com/aida-public/AB6AXuAf6VyWsnDktQtgj_arF9jz4YJC752rrmzE6GtbYWBr4KainovrrrcH3uX9wu836TNwu-egeWr7FpYJ8qco_6tOL9v94LfmF6CWnjqwATIiL-Vfq_I1vgRdo6OqCJY439R4FGX-FiEPn49ur36G6a0lfkCVq8oK2CuGTku1mGeyjdtnZIayLKZ-qQ6bbU_OQEEO1QUzyFvBZ7nPtOnVIVWE-VHCH4YV0xZaUkP6Lij942PImep5rGWDJ2BUPGthDVmjoPbA7O_hD2P4', 'Ilustrasi laporan transparansi keuangan.'],
+  ['cerita-relawan-menembus-jalan-berlumpur-demi-amanah', 'Cerita Relawan: Menembus Jalan Berlumpur Demi Amanah', 'inspirasi', 'Inspirasi', 'Relawan Lapangan', 'Perjalanan relawan membawa bantuan ke daerah terpencil menjadi pengingat bahwa kebaikan selalu menemukan jalan.', '2024-02-14', 'https://lh3.googleusercontent.com/aida-public/AB6AXuCmbQJQnavBhyxQuyJ33QUZhpuIB_Nhy4R7T8JAa2TmUK2geDz-zgLH4hwHLilmuCR5OaGTE4HVpOBVfE0LHiw_FQtow5qotJrqpyk5tdFeNgJ-Ddr3Xj-EzXOVFUfWjBEduYyHjuh5W-_Qpb7iD9OfvW8uy1Tg-aTucustyxGOrnN46AShp9rN0HUoUbqaH-KNCIpwuBmOsJZOrDAPFmUqhtzW02Wu3c5Kt1LfqCQxiMA05IcZxfApWHL2jcZOP6sa43g0YmNR9CpI', 'Penerima manfaat menyambut relawan.'],
+] as const;
 
 const campaigns = [
   {
@@ -587,6 +597,73 @@ async function main() {
       name: process.env.ADMIN_SEED_NAME || 'Super Admin',
       role: AdminRole.SUPER_ADMIN,
       passwordHash: await hash(adminPassword),
+    },
+  });
+
+  for (const [slug, title, categoryCode, categoryName, authorName, excerpt, date, coverImageUrl, coverImageAlt] of seededArticles) {
+    const category = await prisma.articleCategory.upsert({
+      where: { code: categoryCode },
+      update: { name: categoryName, isActive: true },
+      create: { code: categoryCode, name: categoryName },
+    });
+    const impact = slug === 'penyaluran-500-paket-pangan-pelosok-jawa-barat';
+    await prisma.article.upsert({
+      where: { slug },
+      update: {},
+      create: {
+        categoryId: category.id, slug, title, excerpt, authorName, readTimeMinutes: 5,
+        coverImageUrl, coverImageAlt, content: [
+          { type: 'paragraph', text: excerpt },
+          { type: 'paragraph', text: 'Program ini terlaksana berkat kolaborasi donatur, relawan, dan mitra lokal. Setiap amanah disalurkan secara terukur dan didokumentasikan sebagai bagian dari komitmen transparansi Derma Nusantara.' },
+        ],
+        status: ArticleStatus.PUBLISHED, publishedAt: new Date(`${date}T09:00:00+07:00`),
+        disbursedAmount: impact ? 25_000_000n : null, beneficiaryCount: impact ? 500 : null, beneficiaryUnit: impact ? 'KK' : null,
+        ctaTitle: impact ? 'Mari Lanjutkan Kebaikan Ini' : null,
+        ctaDescription: impact ? 'Dukung program berikutnya agar lebih banyak keluarga dapat menerima manfaat.' : null,
+        ctaStartingAmount: impact ? 10_000n : null, ctaVerificationTime: impact ? 'Verifikasi maksimal 1x24 jam' : null,
+        ctaButtonLabel: impact ? 'Donasi Sekarang' : null, ctaUrl: impact ? '/program' : null,
+      },
+    });
+  }
+
+  const launchCategory = await prisma.articleCategory.findUniqueOrThrow({
+    where: { code: 'kegiatan' },
+  });
+  await prisma.article.upsert({
+    where: { slug: 'derma-nusantara-resmi-diluncurkan' },
+    update: {},
+    create: {
+      categoryId: launchCategory.id,
+      slug: 'derma-nusantara-resmi-diluncurkan',
+      title: 'Derma Nusantara Resmi Diluncurkan, Menghubungkan Kebaikan untuk Indonesia',
+      excerpt: 'Derma Nusantara resmi hadir sebagai platform kebaikan yang mempertemukan donatur dengan program sosial yang transparan, mudah diakses, dan berdampak nyata.',
+      authorName: 'Admin Derma Nusantara',
+      readTimeMinutes: 4,
+      coverImageUrl: 'https://placehold.co/1200x675/1A237E/FFFFFF/png?text=Launching+Derma+Nusantara',
+      coverImageAlt: 'Ilustrasi peluncuran platform sosial Derma Nusantara',
+      coverImageCaption: 'Derma Nusantara resmi hadir untuk menghubungkan lebih banyak kebaikan di seluruh Indonesia.',
+      content: [
+        { type: 'paragraph', text: 'Derma Nusantara resmi diluncurkan sebagai platform sosial yang membantu masyarakat menyalurkan kepedulian secara lebih mudah, aman, dan transparan. Kehadiran platform ini menjadi langkah awal untuk mempertemukan para donatur dengan program-program yang memiliki kebutuhan nyata di berbagai wilayah Indonesia.' },
+        { type: 'heading', level: 2, text: 'Kebaikan yang Lebih Mudah Dijangkau' },
+        { type: 'paragraph', text: 'Melalui Derma Nusantara, masyarakat dapat menemukan program di bidang pendidikan, pangan, wakaf, serta bantuan kemanusiaan dalam satu tempat. Setiap program dilengkapi informasi tujuan, target, perkembangan donasi, dan pembaruan penyaluran agar donatur dapat mengikuti perjalanan amanah yang mereka titipkan.' },
+        { type: 'paragraph', text: 'Platform ini dirancang dengan pengalaman yang sederhana. Donatur dapat memilih program, menentukan nominal dukungan, dan memperoleh informasi pembayaran tanpa proses yang rumit. Di sisi lain, pengelola dapat mencatat perkembangan program dan menjaga data penyaluran secara lebih terstruktur.' },
+        { type: 'quote', text: 'Kami percaya bahwa teknologi seharusnya membuat kebaikan terasa lebih dekat, transparan, dan mudah dilakukan oleh siapa saja.', attribution: 'Tim Derma Nusantara' },
+        { type: 'heading', level: 2, text: 'Transparansi sebagai Fondasi' },
+        { type: 'paragraph', text: 'Kepercayaan adalah bagian penting dari setiap donasi. Karena itu, Derma Nusantara menempatkan transparansi sebagai fondasi utama. Informasi program, status donasi, laporan penyaluran, dan cerita penerima manfaat akan disampaikan secara berkala dengan bahasa yang jelas dan mudah dipahami.' },
+        { type: 'heading', level: 2, text: 'Tumbuh Bersama Kolaborasi' },
+        { type: 'paragraph', text: 'Peluncuran ini bukanlah tujuan akhir, melainkan awal dari perjalanan panjang. Derma Nusantara akan terus berkembang bersama donatur, relawan, mitra komunitas, dan masyarakat. Masukan dari berbagai pihak akan menjadi bagian penting dalam membangun layanan yang semakin amanah dan bermanfaat.' },
+        { type: 'paragraph', text: 'Kami mengundang seluruh masyarakat untuk mengenal program-program Derma Nusantara, membagikan informasi kebaikan, dan mengambil bagian sesuai kemampuan. Karena setiap kontribusi, sekecil apa pun, dapat menjadi awal perubahan yang berarti bagi sesama.' },
+      ],
+      status: ArticleStatus.DRAFT,
+      ctaTitle: 'Mulai Perjalanan Kebaikan Bersama Derma Nusantara',
+      ctaDescription: 'Temukan program yang dekat dengan kepedulian Anda dan ambil bagian dalam menghadirkan dampak nyata.',
+      ctaStartingAmount: 10_000n,
+      ctaVerificationTime: 'Verifikasi maksimal 1x24 jam',
+      ctaButtonLabel: 'Lihat Program Kebaikan',
+      ctaUrl: '/#programs',
+      seoTitle: 'Derma Nusantara Resmi Diluncurkan untuk Indonesia',
+      seoDescription: 'Derma Nusantara hadir sebagai platform donasi transparan yang menghubungkan donatur dengan program sosial berdampak di Indonesia.',
+      ogImageUrl: 'https://placehold.co/1200x630/1A237E/FFFFFF/png?text=Launching+Derma+Nusantara',
     },
   });
 }
