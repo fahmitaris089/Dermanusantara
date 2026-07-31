@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import ExcelJS from 'exceljs';
 import { AdminService } from './admin.service';
-import { BankAccountDto, BaselineDto, CampaignDto, CategoryDto, DonationConfigDto, OptionDto, PageDto, PaymentLinksDto, PaymentMethodDto, ReorderDto, SettingsDto, StatusActionDto, UpdateDto } from './admin.dto';
+import { BankAccountDto, BaselineDto, BulkDeleteDonationsDto, CampaignDto, CategoryDto, DonationConfigDto, OptionDto, PageDto, PaymentLinksDto, PaymentMethodDto, ReorderDto, SettingsDto, StatusActionDto, UpdateDto } from './admin.dto';
 import { AdminAuthGuard, CsrfGuard, Roles, RolesGuard } from './admin.security';
 import type { AdminRequest } from './admin.types';
 import { DomainException } from '../common/domain.exception';
@@ -113,7 +113,11 @@ export class AdminCampaignsController {
 export class AdminDonationsController {
   constructor(private readonly service: AdminService) {}
   @Get() list(@Query() q: PageDto & Record<string, string | number | undefined>) { return this.service.donations(normalizedQuery(q)); }
+  @Delete('bulk') @Roles(AdminRole.SUPER_ADMIN)
+  bulkDelete(@Body() b: BulkDeleteDonationsDto, @Req() r: AdminRequest) { return this.service.deleteDonations(b.ids, r.admin!.id); }
   @Get(':id') get(@Param('id') id: string) { return this.service.donation(id); }
+  @Delete(':id') @Roles(AdminRole.SUPER_ADMIN)
+  remove(@Param('id') id: string, @Req() r: AdminRequest) { return this.service.deleteDonations([id], r.admin!.id); }
   @Post(':id/manual-review') review(@Param('id') id: string, @Body() b: StatusActionDto, @Req() r: AdminRequest) { return this.service.transition(id, DonationStatus.MANUAL_REVIEW, null, b, r.admin!.id); }
   @Post(':id/verify-payment') verify(@Param('id') id: string, @Body() b: StatusActionDto, @Req() r: AdminRequest) { return this.service.transition(id, DonationStatus.PAID, PaymentStatus.VERIFIED, b, r.admin!.id); }
   @Post(':id/reject-payment') reject(@Param('id') id: string, @Body() b: StatusActionDto, @Req() r: AdminRequest) { return this.service.transition(id, DonationStatus.REJECTED, PaymentStatus.FAILED, b, r.admin!.id); }

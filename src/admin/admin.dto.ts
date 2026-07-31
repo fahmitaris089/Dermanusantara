@@ -1,6 +1,8 @@
 import { AdminRole, ContributionInputType, PaymentMethodType, TargetMetric } from '@prisma/client';
 import {
   IsArray,
+  ArrayMaxSize,
+  ArrayUnique,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -124,6 +126,13 @@ export class BaselineDto {
 export class StatusActionDto {
   @IsString() @MinLength(3) note!: string;
   @IsOptional() @IsString() bankReference?: string;
+}
+export class BulkDeleteDonationsDto {
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  ids!: string[];
 }
 export class SettingsDto {
   @IsObject() values!: Record<string, unknown>;

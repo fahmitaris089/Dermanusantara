@@ -334,6 +334,34 @@ export class AdminService {
   }
   private serializeDonation(row: any) { return { ...row, baseAmount: Number(row.baseAmount), unitPriceSnapshot: row.unitPriceSnapshot === null ? null : Number(row.unitPriceSnapshot), payments: row.payments?.map((p: any) => ({ ...p, baseAmount: Number(p.baseAmount), payableAmount: Number(p.payableAmount) })) }; }
   async donation(id: string) { const data = await this.prisma.donation.findUnique({ where: { id }, include: { payments: { include: { paymentMethod: true, bankAccount: true, verifiedByAdmin: { select: { id: true, name: true, email: true } } } }, statusHistories: { orderBy: { createdAt: 'asc' } } } }); if (!data) this.notFound('Donation'); const auditLogs = await this.prisma.auditLog.findMany({ where: { entityType: 'Donation', entityId: id }, orderBy: { createdAt: 'asc' } }); return { data: { ...this.serializeDonation(data), auditLogs } }; }
+  async deleteDonations(ids: string[], actor: string) {
+    if (!ids.length) throw new DomainException('VALIDATION_ERROR', 'Pilih minimal satu donasi.', HttpStatus.BAD_REQUEST);
+    return this.prisma.$transaction(async (tx) => {
+      const donations = await tx.donation.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, publicId: true, invoiceNumber: true, campaignId: true, status: true, baseAmount: true },
+      });
+      if (donations.length !== ids.length) throw new DomainException('NOT_FOUND', 'Satu atau lebih donasi tidak ditemukan.', HttpStatus.NOT_FOUND);
+      await tx.donation.deleteMany({ where: { id: { in: ids } } });
+      await tx.auditLog.createMany({
+        data: donations.map((donation) => ({
+          actorId: actor,
+          action: 'DONATION_DELETED',
+          entityType: 'Donation',
+          entityId: donation.id,
+          beforeData: {
+            publicId: donation.publicId,
+            invoiceNumber: donation.invoiceNumber,
+            campaignId: donation.campaignId,
+            status: donation.status,
+            baseAmount: Number(donation.baseAmount),
+          },
+          reason: ids.length > 1 ? `Bulk delete ${ids.length} donasi` : 'Delete donasi oleh Super Admin',
+        })),
+      });
+      return { data: { deletedCount: donations.length, ids: donations.map((donation) => donation.id) } };
+    });
+  }
   async payments(query: PageDto & Record<string, string | number | undefined>) { const where: Prisma.PaymentWhereInput = query.status ? { status: query.status as PaymentStatus } : {}; const [data, total] = await this.prisma.$transaction([this.prisma.payment.findMany({ where, include: { donation: true, paymentMethod: true, bankAccount: true, verifiedByAdmin: { select: { id: true, name: true } } }, skip: (query.page - 1) * query.limit, take: query.limit, orderBy: { createdAt: 'desc' } }), this.prisma.payment.count({ where })]); return { data: data.map((x) => ({ ...x, baseAmount: Number(x.baseAmount), payableAmount: Number(x.payableAmount), donation: this.serializeDonation(x.donation) })), meta: this.meta(query.page, query.limit, total) }; }
   async payment(id: string) { const data = await this.prisma.payment.findUnique({ where: { id }, include: { donation: true, paymentMethod: true, bankAccount: true, verifiedByAdmin: { select: { id: true, name: true, email: true } } } }); if (!data) this.notFound('Payment'); return { data: { ...data, baseAmount: Number(data.baseAmount), payableAmount: Number(data.payableAmount), donation: this.serializeDonation(data.donation) } }; }
 
