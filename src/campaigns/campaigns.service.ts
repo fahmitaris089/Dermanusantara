@@ -112,7 +112,7 @@ export class CampaignsService {
           status: DonationStatus.PAID,
         },
         orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
-        take: 10,
+        take: 5,
         select: {
           donorName: true,
           isAnonymous: true,
@@ -176,6 +176,7 @@ export class CampaignsService {
     id: string;
     slug: string;
     title: string;
+    cardBadgeText: string | null;
     shortDescription: string;
     coverImageUrl: string;
     coverImageAlt: string;
@@ -219,6 +220,8 @@ export class CampaignsService {
       id: campaign.id,
       slug: campaign.slug,
       title: campaign.title,
+      cardBadgeText:
+        campaign.cardBadgeText ?? `${campaign.category.name} Pelosok Negeri`,
       shortDescription: campaign.shortDescription,
       coverImageUrl: campaign.coverImageUrl,
       coverImageAlt: campaign.coverImageAlt,

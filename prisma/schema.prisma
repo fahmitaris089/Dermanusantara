@@ -138,6 +138,7 @@ model Campaign {
   categoryId         String                   @map("category_id")
   slug               String                   @unique
   title              String
+  cardBadgeText      String?                  @db.VarChar(80) @map("card_badge_text")
   shortDescription   String                   @map("short_description")
   description        String
   coverImageUrl      String                   @map("cover_image_url")

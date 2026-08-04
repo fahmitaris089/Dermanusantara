@@ -398,6 +398,7 @@ async function main() {
       update: {
         categoryId: category.id,
         title: definition.title,
+        cardBadgeText: `${definition.categoryName} Pelosok Negeri`,
         shortDescription: definition.description,
         description: definition.description,
         coverImageUrl: definition.imageUrl,
@@ -418,6 +419,7 @@ async function main() {
         categoryId: category.id,
         slug: definition.slug,
         title: definition.title,
+        cardBadgeText: `${definition.categoryName} Pelosok Negeri`,
         shortDescription: definition.description,
         description: definition.description,
         coverImageUrl: definition.imageUrl,

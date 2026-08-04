@@ -216,7 +216,7 @@ export class AdminService {
     return { data: this.serializeCampaign({ ...data, donationOptions: data.donationOptions.map((x) => ({ ...x, amount: Number(x.amount) })), statBaseline: data.statBaseline ? { ...data.statBaseline, collectedAmount: Number(data.statBaseline.collectedAmount) } : null }) };
   }
   private campaignData(input: CampaignDto) {
-    return { ...input, story: input.story as Prisma.InputJsonValue, highlights: input.highlights as Prisma.InputJsonValue, startsAt: input.startsAt ? new Date(input.startsAt) : null, endsAt: input.endsAt ? new Date(input.endsAt) : null, targetAmount: input.targetAmount, expectedUpdatedAt: undefined };
+    return { ...input, cardBadgeText: input.cardBadgeText?.trim() || null, story: input.story as Prisma.InputJsonValue, highlights: input.highlights as Prisma.InputJsonValue, startsAt: input.startsAt ? new Date(input.startsAt) : null, endsAt: input.endsAt ? new Date(input.endsAt) : null, targetAmount: input.targetAmount, expectedUpdatedAt: undefined };
   }
   async createCampaign(input: CampaignDto, actor: string) {
     const data = await this.prisma.campaign.create({ data: { ...this.campaignData(input), status: CampaignStatus.DRAFT } });

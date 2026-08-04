@@ -69,6 +69,7 @@ export class CampaignDto {
   @IsString() categoryId!: string;
   @IsString() slug!: string;
   @IsString() title!: string;
+  @IsOptional() @IsString() @MaxLength(80) cardBadgeText?: string;
   @IsString() shortDescription!: string;
   @IsString() description!: string;
   @IsString() coverImageUrl!: string;
