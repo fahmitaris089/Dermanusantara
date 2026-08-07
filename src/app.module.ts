@@ -10,6 +10,7 @@ import { HealthController } from './health.controller';
 import { AdminModule } from './admin/admin.module';
 import { ArticlesModule } from './articles/articles.module';
 import { HeroSlidesModule } from './hero-slides/hero-slides.module';
+import { TestimonialsModule } from './testimonials/testimonials.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { HeroSlidesModule } from './hero-slides/hero-slides.module';
     AdminModule,
     ArticlesModule,
     HeroSlidesModule,
+    TestimonialsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

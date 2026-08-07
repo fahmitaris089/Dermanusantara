@@ -73,6 +73,7 @@ export class AdminMediaController {
     if (await this.prisma.campaign.count({ where: { coverImageUrl: media.url } })) throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan campaign.', HttpStatus.CONFLICT);
     if (await this.prisma.article.count({ where: { OR: [{ coverImageUrl: media.url }, { ogImageUrl: media.url }] } })) throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan sebagai cover atau OG image artikel.', HttpStatus.CONFLICT);
     if (await this.prisma.heroSlide.count({ where: { OR: [{ desktopImageUrl: media.url }, { mobileImageUrl: media.url }] } })) throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan hero slider.', HttpStatus.CONFLICT);
+    if (await this.prisma.testimonial.count({ where: { photoUrl: media.url } })) throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan testimoni.', HttpStatus.CONFLICT);
     const articleContents = await this.prisma.article.findMany({ select: { content: true } });
     if (articleContents.some(({ content }) => Array.isArray(content) && content.some((block) => typeof block === 'object' && block !== null && !Array.isArray(block) && (block as { url?: string }).url === media.url))) {
       throw new DomainException('RESOURCE_IN_USE', 'Media sedang digunakan di dalam konten artikel.', HttpStatus.CONFLICT);
